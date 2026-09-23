@@ -3,11 +3,18 @@
 behind the TastyBox Channel Explorer, for the instructor to explore, audit,
 or extend. Editing the blue assumption cells recalculates everything else."""
 
+import re
+
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-from data import CHANNELS, CHANNEL_ORDER, MARGIN, MONTHS
+from data import CHANNELS, CHANNEL_ORDER, MARGIN, MONTHS, BUSINESS_QUESTIONS
+
+
+def strip_md(text):
+    """Drop **bold** markers for plain-text Excel cells (no rich-text runs)."""
+    return re.sub(r"\*\*(.+?)\*\*", r"\1", text)
 
 # ---------------------------------------------------------------------
 # Styling constants
@@ -124,10 +131,12 @@ r = add_para(ws, r, (
 ))
 r += 1
 r = add_section(ws, r, "Tabs in this workbook")
+r = add_bullet(ws, r, "Discussion Questions", "the same four open-ended prompts as the widget — a scenario and a question, no answers. Hand this tab (plus Channel Summary and the Monthly Data tabs) to students if you're running the exercise in Excel instead of the widget.")
 r = add_bullet(ws, r, "Channel Summary", "one row per channel: acquired, CAC, CLV at months 3/6/12, net value, total value created, LTV:CAC ratio.")
 r = add_bullet(ws, r, "Monthly Data - Blended", "60 rows (5 channels x 12 months): the headline retention/CLV curve per channel, as shown in the widget by default.")
 r = add_bullet(ws, r, "Monthly Data - By Segment", "120 rows (5 channels x 2 segments x 12 months): the New-to-brand / Existing split behind each blended curve — what the widget's 'Split by segment' toggle reveals.")
 r = add_bullet(ws, r, "Assumptions", "the model's actual inputs: margin, and each channel/segment's acquired count, CAC, segment share, retention floor, and monthly decay. Edit here to explore scenarios.")
+r = add_bullet(ws, r, "Instructor Notes", "the debrief write-up for each question — what the naive read misses, and why. Not gated the way the widget's version is (Excel doesn't offer a clean equivalent), so keep this tab out of anything you hand to students, or just don't share this file with them ahead of the exercise.")
 r += 1
 r = add_section(ws, r, "A note on precision")
 r = add_para(ws, r, (
@@ -394,10 +403,65 @@ for i, name in enumerate(CHANNEL_ORDER):
 cs_ws.freeze_panes = "A2"
 autofit(cs_ws, [15, 17, 10, 13, 13, 13, 20, 20, 13])
 
-# reorder sheets: Read Me, Channel Summary, Monthly Blended, Monthly Segment, Assumptions
+# =======================================================================
+# Sheet 6: Discussion Questions — same four open-ended prompts as the
+# widget. No answers here; this is the student-facing sheet.
+# =======================================================================
+dq_ws = wb.create_sheet("Discussion Questions")
+dq_ws["A1"] = "TastyBox Channel Explorer — Discussion Questions"
+dq_ws["A1"].font = TITLE_FONT
+dq_ws.merge_cells("A1:F1")
+dq_ws["A2"] = "Customer Analytics (MARK 6580) · TastyBox case"
+dq_ws["A2"].font = Font(name=FONT_NAME, color=TEAL, bold=True, size=10.5)
+dq_ws.merge_cells("A2:F2")
+
+r = 4
+r = add_para(dq_ws, r, (
+    "Work through these with your group using the Channel Summary and "
+    "Monthly Data tabs. Come with an answer — and a reason for it — before "
+    "the class discusses each one."
+))
+r += 1
+for q in BUSINESS_QUESTIONS:
+    r = add_section(dq_ws, r, q["title"])
+    r = add_para(dq_ws, r, q["setup"])
+    prompt_cell = dq_ws.cell(row=r, column=1, value=q["prompt"])
+    prompt_cell.font = Font(name=FONT_NAME, bold=True, color=NAVY, size=10.5)
+    prompt_cell.alignment = Alignment(wrap_text=True, vertical="top")
+    dq_ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=WRAP_COLS)
+    import math as _math
+    dq_ws.row_dimensions[r].height = 15 * max(1, _math.ceil(len(q["prompt"]) / COL_WIDTH_CHARS)) + 8
+    r += 2
+
+autofit(dq_ws, [20, 20, 20, 20, 20, 20])
+
+# =======================================================================
+# Sheet 7: Instructor Notes — the debrief write-up for each question.
+# Last tab in the workbook; nothing hides it, it's just not the first
+# thing anyone sees.
+# =======================================================================
+notes_ws = wb.create_sheet("Instructor Notes")
+notes_ws["A1"] = "TastyBox Channel Explorer — Instructor Notes"
+notes_ws["A1"].font = TITLE_FONT
+notes_ws.merge_cells("A1:F1")
+notes_ws["A2"] = "Debrief write-ups — for use after each group has argued through a question"
+notes_ws["A2"].font = Font(name=FONT_NAME, color=TEAL, bold=True, size=10.5)
+notes_ws.merge_cells("A2:F2")
+
+r = 4
+for q in BUSINESS_QUESTIONS:
+    r = add_section(notes_ws, r, q["title"])
+    for para in q["reveal"].split("\n\n"):
+        r = add_para(notes_ws, r, strip_md(para))
+    r += 1
+
+autofit(notes_ws, [20, 20, 20, 20, 20, 20])
+
+# reorder sheets
 wb._sheets = [
-    wb["Read Me"], wb["Channel Summary"], wb["Monthly Data - Blended"],
-    wb["Monthly Data - By Segment"], wb["Assumptions"],
+    wb["Read Me"], wb["Discussion Questions"], wb["Channel Summary"],
+    wb["Monthly Data - Blended"], wb["Monthly Data - By Segment"],
+    wb["Assumptions"], wb["Instructor Notes"],
 ]
 
 wb.save("TastyBox_RawData.xlsx")

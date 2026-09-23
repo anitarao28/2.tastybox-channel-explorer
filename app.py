@@ -19,12 +19,12 @@ def md_to_html(text: str) -> str:
         html_paragraphs.append(f"<p style='margin:0 0 10px;'>{p}</p>")
     return "".join(html_paragraphs)
 
-from data import DATA, CHANNEL_ORDER, COLORS, MARGIN, MONTHS, BUSINESS_QUESTIONS
+from data import DATA, CHANNEL_ORDER, COLORS, MARGIN, MONTHS, BUSINESS_QUESTIONS, INSTRUCTOR_CODE
 
 # ------------------------------------------------------------------
 # Page + brand styling (matches the deck's navy/teal system)
 # ------------------------------------------------------------------
-st.set_page_config(page_title="TastyBox Channel Explorer", layout="wide")
+st.set_page_config(page_title="TastyBox Channel Explorer", layout="wide", initial_sidebar_state="collapsed")
 
 NAVY = "#13233B"
 TEAL = "#0E7C7B"
@@ -77,12 +77,16 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+with st.sidebar:
+    debrief_code = st.text_input("Code", type="password", label_visibility="collapsed", placeholder="Code")
+    unlocked = debrief_code.strip().lower() == INSTRUCTOR_CODE.strip().lower() and debrief_code != ""
+
 st.markdown('<div class="eyebrow">Customer Analytics &middot; TastyBox Case</div>', unsafe_allow_html=True)
 st.markdown('<h1 class="tb-title">TastyBox Channel Explorer</h1>', unsafe_allow_html=True)
 st.markdown(
     '<div class="tb-subtitle">Five acquisition channels, twelve months of retention data. '
     "You're advising on next year's channel budget — toggle the controls below to work "
-    "through four decisions where the obvious first read turns out to be wrong.</div>",
+    "through four decisions.</div>",
     unsafe_allow_html=True,
 )
 
@@ -230,23 +234,33 @@ st.divider()
 # Guided business questions
 # ------------------------------------------------------------------
 st.markdown('<div class="eyebrow">In-Class Exercise</div>', unsafe_allow_html=True)
-st.markdown('<h2 style="font-family: Georgia, serif; color:#13233B; margin-top:0;">Four Questions, Four Traps</h2>', unsafe_allow_html=True)
+st.markdown('<h2 style="font-family: Georgia, serif; color:#13233B; margin-top:0;">Four Questions to Work Through</h2>', unsafe_allow_html=True)
 st.markdown(
-    '<p style="font-size:14.5px; color:#3A4552; max-width:900px;">Work through these with your group. '
-    "For each one: write down your answer from the setup description alone, "
-    "<i>then</i> try the suggested toggle before revealing the trap.</p>",
+    '<p style="font-size:14.5px; color:#3A4552; max-width:900px;">Work through these with your group using '
+    "the controls above. Come with an answer — and a reason for it — before the class discusses each one.</p>",
     unsafe_allow_html=True,
 )
 
 for q in BUSINESS_QUESTIONS:
     with st.expander(q["title"]):
         st.markdown(q["setup"])
-        st.markdown(f"*Try this: {q['trap_hint']}*")
-        if st.button("Reveal the trap", key=f"reveal_{q['id']}"):
-            st.markdown(f'<div class="insight-box">{md_to_html(q["reveal"])}</div>', unsafe_allow_html=True)
+        st.markdown(f"**{q['prompt']}**")
 
 st.markdown(
     f'<footer class="tb-footer">Margin = ${MARGIN}/active customer/month. '
     "All figures are simplified teaching data, internally consistent, not real TastyBox financials.</footer>",
     unsafe_allow_html=True,
 )
+
+# ------------------------------------------------------------------
+# Instructor debrief notes — only render once the sidebar code matches.
+# Nothing on the page hints these exist until then.
+# ------------------------------------------------------------------
+if unlocked:
+    st.divider()
+    st.markdown('<div class="eyebrow">Instructor Notes</div>', unsafe_allow_html=True)
+    st.markdown('<h2 style="font-family: Georgia, serif; color:#13233B; margin-top:0;">Debrief</h2>', unsafe_allow_html=True)
+    for q in BUSINESS_QUESTIONS:
+        st.markdown(f"**{q['title']}**")
+        st.markdown(f'<div class="insight-box">{md_to_html(q["reveal"])}</div>', unsafe_allow_html=True)
+        st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)

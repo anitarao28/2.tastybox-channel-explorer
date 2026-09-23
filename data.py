@@ -5,13 +5,18 @@ TastyBox Channel Explorer — dataset and derived metrics.
 Five acquisition channels, 12 months of retention data each, built from two
 underlying sub-segments (New-to-brand / Existing) that blend into the
 "headline" curve students see by default. Every number here was verified
-programmatically (see design_data.py) to produce four specific analytical
-"traps" when explored through the widget's toggles — see BUSINESS_QUESTIONS
-at the bottom for what each one is testing.
+programmatically to produce four specific analytical reversals when
+explored through the widget's toggles — see BUSINESS_QUESTIONS at the
+bottom for what each one is testing, and INSTRUCTOR_CODE below for the
+sidebar passcode that unlocks the debrief notes.
 """
 
 MARGIN = 15  # $ margin per active customer per month
 MONTHS = 12
+
+# Passcode that unlocks the instructor debrief notes in the sidebar.
+# Change this before class to whatever you'll actually use/remember.
+INSTRUCTOR_CODE = "tastybox-debrief"
 
 # name -> (acquired customers, CAC per acquired customer $, segments)
 # each segment: (label, floor retention, monthly decay, share of channel's acquisitions)
@@ -92,9 +97,12 @@ DATA = build_dataset()
 
 
 # ---------------------------------------------------------------------
-# The four guided business questions. Each maps to one widget toggle and
-# names the naive answer a student is likely to give at a glance, plus the
-# reveal once they use the toggle. Shown in the app inside expanders.
+# The four guided business questions. Each is an open scenario with a
+# question for the group to argue through using the widget's controls —
+# no hint at which toggle "solves" it, and no per-question answer key.
+# The write-ups in `reveal` are for the instructor debrief after
+# discussion; the app surfaces them only behind a passcode, never
+# attached to the question itself. See BUSINESS_QUESTIONS below.
 # ---------------------------------------------------------------------
 BUSINESS_QUESTIONS = [
     dict(
@@ -106,7 +114,7 @@ BUSINESS_QUESTIONS = [
             "read: which channel is winning so far? Set the month slider to 3 and "
             "look at the ranking."
         ),
-        trap_hint="Drag the month slider from 3 out to 12. Watch the top of the ranking.",
+        prompt="What would you caution against before she locks in that budget?",
         reveal=(
             "**The trap:** at month 3, Influencer is in a near-tie for the lead — a "
             "defensible pick if you're locking in a budget off one quarter.\n\n"
@@ -126,7 +134,7 @@ BUSINESS_QUESTIONS = [
             "and it was even the Q1 leader. The growth team's draft memo recommends "
             "doubling Influencer spend next year on the strength of that number."
         ),
-        trap_hint="Toggle 'Include acquisition cost' on and re-read Influencer's rank.",
+        prompt="What would you want to check before signing off on that memo?",
         reveal=(
             "**The trap:** CLV alone makes Influencer look like a safe channel to "
             "scale — nothing in that number signals a problem.\n\n"
@@ -146,7 +154,7 @@ BUSINESS_QUESTIONS = [
             "channel, and almost twice Holiday Promo's 480. In the year-end growth "
             "review, it's the headline number: Paid Search built the base."
         ),
-        trap_hint="Switch the comparison view from 'Customers Acquired' to 'Total Value Created'.",
+        prompt="What's missing from that headline number?",
         reveal=(
             "**The trap:** 900 new customers is the biggest number on the page, and "
             "headcount is the easiest metric to lead a growth review with.\n\n"
@@ -166,7 +174,7 @@ BUSINESS_QUESTIONS = [
             "value created. Nothing in the blended numbers argues for protecting its "
             "budget line, and it's the easiest channel to cut without a fight."
         ),
-        trap_hint="Toggle 'Split by segment' and compare Referral's two lines.",
+        prompt="Would you defend that call? What would make you dig further first?",
         reveal=(
             "**The trap:** the blended number is genuinely unremarkable on every "
             "measure, so \"deprioritize Referral\" reads as the safe, low-risk "
