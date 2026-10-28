@@ -13,6 +13,8 @@ sidebar passcode that unlocks the debrief notes.
 
 MARGIN = 15  # $ margin per active customer per month
 MONTHS = 12
+ANNUAL_DISCOUNT_RATE = 0.10                                   # d = 10% a year, as in the CLV formula
+MONTHLY_DISCOUNT_RATE = (1 + ANNUAL_DISCOUNT_RATE) ** (1 / 12) - 1   # about 0.8% a month
 
 # Passcode that unlocks the instructor debrief notes in the sidebar.
 # Change this before class to whatever you'll actually use/remember.
@@ -62,11 +64,14 @@ def _blend(curve_a, curve_b, share_a):
     return [share_a * a + (1 - share_a) * b for a, b in zip(curve_a, curve_b)]
 
 
-def _cum_clv(frac_curve, margin=MARGIN):
+def _cum_clv(frac_curve, margin=MARGIN, d=MONTHLY_DISCOUNT_RATE):
+    """Cumulative discounted CLV per acquired customer, month by month.
+    Same timing as the course formula CLV = m(1+d)/(1+d-r): the first month's
+    margin counts in full, and month t's margin is divided by (1+d)^(t-1)."""
     running = 0.0
     out = []
-    for f in frac_curve:
-        running += f * margin
+    for t, f in enumerate(frac_curve, start=1):
+        running += f * margin / (1 + d) ** (t - 1)
         out.append(running)
     return out
 
@@ -130,7 +135,7 @@ BUSINESS_QUESTIONS = [
         id="q2",
         title="Q2 — Influencer posts a solid CLV. Do you recommend scaling it?",
         setup=(
-            "Influencer's 12-month CLV per customer is $78.70 — respectable, mid-pack, "
+            "Influencer's 12-month CLV per customer is $76.32 — respectable, mid-pack, "
             "and it was even the Q1 leader. The growth team's draft memo recommends "
             "doubling Influencer spend next year on the strength of that number."
         ),
@@ -139,9 +144,9 @@ BUSINESS_QUESTIONS = [
             "**The trap:** CLV alone makes Influencer look like a safe channel to "
             "scale — nothing in that number signals a problem.\n\n"
             "**The reveal:** Influencer's CAC is $45, by far the highest of the "
-            "five, putting its LTV:CAC ratio at roughly 1.75:1 — well under the 3:1 "
+            "five, putting its LTV:CAC ratio at roughly 1.7:1 — well under the 3:1 "
             "most marketing teams use as a floor for a channel worth scaling. Net of "
-            "acquisition cost, its value falls to $33.70, second-to-last of all "
+            "acquisition cost, its value falls to $31.32, second-to-last of all "
             "five. The memo's recommendation reverses once cost enters the model: "
             "no scaling call should be made on CLV alone."
         ),
@@ -158,9 +163,9 @@ BUSINESS_QUESTIONS = [
         reveal=(
             "**The trap:** 900 new customers is the biggest number on the page, and "
             "headcount is the easiest metric to lead a growth review with.\n\n"
-            "**The reveal:** Paid Search's per-customer CLV ($49.53) is the worst of "
+            "**The reveal:** Paid Search's per-customer CLV ($48.19) is the worst of "
             "all five channels, and in total dollars it's actually beaten by Holiday "
-            "Promo ($48,752 vs. $44,581) — a channel that acquired little more than "
+            "Promo ($46,851 vs. $43,372) — a channel that acquired little more than "
             "half as many customers. Volume and value answer different questions; a "
             "growth review that tracks acquisition count alone keeps funding the "
             "channel that looks biggest, not the one that's paying back."
@@ -181,9 +186,9 @@ BUSINESS_QUESTIONS = [
             "call.\n\n"
             "**The reveal:** Referral is actually two very different customer "
             "populations averaged together. Referrals from **existing customers** "
-            "are worth $171.07 — the single best number in the entire dataset, ahead "
+            "are worth $163.94 — the single best number in the entire dataset, ahead "
             "of every other channel outright. Referrals that bring in **new-to-brand** "
-            "customers are worth only $28.02 — the worst. Averaging hid a targeting "
+            "customers are worth only $27.40 — the worst. Averaging hid a targeting "
             "decision as a channel decision: the fix isn't to cut Referral, it's to "
             "redesign the program so it targets existing customers' networks instead "
             "of cold new-to-brand traffic."
