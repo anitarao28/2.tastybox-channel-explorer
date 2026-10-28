@@ -72,6 +72,21 @@ st.markdown(
     .stat-tile .num {{ font-family: Georgia, serif; font-size: 22px; font-weight: 700; color: {NAVY}; }}
     .stat-tile .lbl {{ font-size: 11px; color: {GRAY}; text-transform: uppercase; letter-spacing: 0.5px; }}
     footer.tb-footer {{ margin-top: 28px; font-size: 11.5px; color: {GRAY}; font-style: italic; }}
+    .assumptions {{ font-size: 14px; color: {NAVY}; margin: 0 0 10px; }}
+    table.inputs {{ width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 6px; }}
+    table.inputs th {{
+        text-align: right; font-size: 11.5px; font-weight: 700; color: {GRAY};
+        text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 10px;
+        border-bottom: 1px solid {CARD_BORDER};
+    }}
+    table.inputs th:first-child, table.inputs td:first-child {{ text-align: left; }}
+    table.inputs td {{ text-align: right; padding: 7px 10px; border-bottom: 1px solid {CARD_BORDER}; color: {TEXT}; }}
+    table.inputs td.name {{ font-weight: 700; color: {NAVY}; }}
+    .dot {{ display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }}
+    .calc {{
+        font-size: 13.5px; color: {TEXT}; background: {CARD_FILL}; border: 1px solid {CARD_BORDER};
+        border-radius: 6px; padding: 10px 14px; margin-top: 4px; line-height: 1.5;
+    }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -111,14 +126,55 @@ with ctrl4:
 
 st.divider()
 
-# ------------------------------------------------------------------
-# Left: cumulative value chart. Right: live ranking.
-# ------------------------------------------------------------------
-left, right = st.columns([1.6, 1])
 
 def channel_value_at(name, m, net):
     v = DATA[name]["blended_clv"][m - 1]
     return v - DATA[name]["cac"] if net else v
+
+
+def payback_month(name):
+    """First month in which cumulative CLV covers the channel's acquisition cost."""
+    for m, v in enumerate(DATA[name]["blended_clv"], start=1):
+        if v >= DATA[name]["cac"]:
+            return m
+    return None
+
+
+# ------------------------------------------------------------------
+# The inputs: everything behind the numbers below, through the selected month
+# ------------------------------------------------------------------
+st.markdown(f'<div class="eyebrow">The inputs &middot; data through month {month}</div>', unsafe_allow_html=True)
+st.markdown(
+    f'<div class="assumptions">Margin: <b>${MARGIN} per active customer per month</b>, the same for every channel '
+    f"&middot; {MONTHS} months of data &middot; no discounting</div>",
+    unsafe_allow_html=True,
+)
+rows = ""
+for name in CHANNEL_ORDER:
+    d = DATA[name]
+    pb = payback_month(name)
+    pb_text = f"Month {pb}" if pb is not None and pb <= month else "Not yet"
+    rows += (
+        f'<tr><td class="name"><span class="dot" style="background:{COLORS[name]}"></span>{name}</td>'
+        f"<td>{d['acquired']:,}</td>"
+        f"<td>${d['cac']}</td>"
+        f"<td>{d['blended_frac'][month - 1]:.0%}</td>"
+        f"<td>${d['blended_clv'][month - 1]:,.2f}</td>"
+        f"<td>{pb_text}</td></tr>"
+    )
+st.markdown(
+    f"""<table class="inputs">
+        <tr><th>Channel</th><th>Customers acquired</th><th>Acquisition cost (CAC) per customer</th>
+            <th>Still active in month {month}</th><th>CLV through month {month}</th><th>Pays back its CAC</th></tr>
+        {rows}
+    </table>""",
+    unsafe_allow_html=True,
+)
+
+# ------------------------------------------------------------------
+# Left: cumulative value chart. Right: live ranking.
+# ------------------------------------------------------------------
+left, right = st.columns([1.6, 1])
 
 with left:
     fig = go.Figure()
@@ -154,6 +210,24 @@ with left:
                         hovertemplate=f"{name} ({seg['name']})<br>Month %{{x}}: $%{{y:.2f}}<extra></extra>",
                     )
                 )
+    if include_cac:
+        # Break-even: net value = 0 means cumulative CLV has covered the CAC.
+        fig.add_hline(y=0, line_width=1.5, line_color=NAVY,
+                      annotation_text="Break-even: CLV = CAC", annotation_position="bottom right",
+                      annotation_font=dict(size=11, color=NAVY))
+        for name in CHANNEL_ORDER:
+            pb = payback_month(name)
+            if pb is not None:
+                fig.add_trace(
+                    go.Scatter(
+                        x=[pb],
+                        y=[DATA[name]["blended_clv"][pb - 1] - DATA[name]["cac"]],
+                        mode="markers",
+                        marker=dict(symbol="diamond", size=12, color=COLORS[name], line=dict(color="white", width=1.5)),
+                        showlegend=False,
+                        hovertemplate=f"{name} pays back its ${DATA[name]['cac']} CAC in month {pb}<extra></extra>",
+                    )
+                )
     fig.add_vline(x=month, line_width=1.5, line_dash="dash", line_color=TEAL)
     ylabel = "Net value (CLV − CAC) per customer" if include_cac else "Cumulative CLV per acquired customer"
     fig.update_layout(
@@ -167,6 +241,13 @@ with left:
         font=dict(color=TEXT, size=12),
     )
     st.plotly_chart(fig, use_container_width=True)
+    if include_cac:
+        st.markdown(
+            '<div style="font-size:11.5px; color:#8592A0; margin-top:-8px;">'
+            "&#9670; = the month each channel's customers have paid back what it cost to acquire them.</div>",
+            unsafe_allow_html=True,
+        )
+
     if split_segment:
         st.markdown(
             '<div style="font-size:11.5px; color:#8592A0; margin-top:-8px;">'
@@ -174,6 +255,23 @@ with left:
             "Hover a dotted line to see which.</div>",
             unsafe_allow_html=True,
         )
+
+    # How CLV is calculated, with a worked example for the channel leading at this month
+    example = max(CHANNEL_ORDER, key=lambda k: channel_value_at(k, month, include_cac))
+    shares = DATA[example]["blended_frac"][:month]
+    if month <= 4:
+        terms = " + ".join(f"{s:.2f}" for s in shares)
+    else:
+        terms = f"{shares[0]:.2f} + {shares[1]:.2f} + &hellip; + {shares[-1]:.2f}"
+    gross = MARGIN * sum(shares)
+    net_part = (f" &minus; ${DATA[example]['cac']} CAC = <b>${gross - DATA[example]['cac']:,.2f}</b> net"
+                if include_cac else "")
+    st.markdown(
+        f'<div class="calc"><b>How CLV is calculated:</b> CLV through month t = ${MARGIN} &times; '
+        f"(share still active in month 1 + &hellip; + month t).<br>"
+        f"Example, {example} through month {month}: ${MARGIN} &times; ({terms}) = <b>${gross:,.2f}</b>{net_part}</div>",
+        unsafe_allow_html=True,
+    )
 
 with right:
     st.markdown(f'<div class="eyebrow" style="margin-top:8px;">Ranking at month {month}</div>', unsafe_allow_html=True)
