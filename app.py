@@ -19,7 +19,7 @@ def md_to_html(text: str) -> str:
         html_paragraphs.append(f"<p style='margin:0 0 10px;'>{p}</p>")
     return "".join(html_paragraphs)
 
-from data import DATA, CHANNEL_ORDER, COLORS, MARGIN, MONTHS, BUSINESS_QUESTIONS, INSTRUCTOR_CODE
+from data import DATA, CHANNEL_ORDER, COLORS, MARGIN, MONTHS, BUSINESS_QUESTIONS, INSTRUCTOR_CODE, ANNUAL_DISCOUNT_RATE, MONTHLY_DISCOUNT_RATE
 
 # ------------------------------------------------------------------
 # Page + brand styling (matches the deck's navy/teal system)
@@ -146,7 +146,8 @@ def payback_month(name):
 st.markdown(f'<div class="eyebrow">The inputs &middot; data through month {month}</div>', unsafe_allow_html=True)
 st.markdown(
     f'<div class="assumptions">Margin: <b>${MARGIN} per active customer per month</b>, the same for every channel '
-    f"&middot; {MONTHS} months of data &middot; no discounting</div>",
+    f"&middot; {MONTHS} months of data &middot; discount rate <b>d = {ANNUAL_DISCOUNT_RATE:.0%} a year</b> "
+    f"(about {MONTHLY_DISCOUNT_RATE:.1%} a month)</div>",
     unsafe_allow_html=True,
 )
 rows = ""
@@ -259,16 +260,27 @@ with left:
     # How CLV is calculated, with a worked example for the channel leading at this month
     example = max(CHANNEL_ORDER, key=lambda k: channel_value_at(k, month, include_cac))
     shares = DATA[example]["blended_frac"][:month]
+    disc = f"{1 + MONTHLY_DISCOUNT_RATE:.3f}"
+
+    def _term(i, s):  # month i+1's share, divided by (1+d)^i
+        if i == 0:
+            return f"{s:.2f}"
+        if i == 1:
+            return f"{s:.2f}/{disc}"
+        return f"{s:.2f}/{disc}<sup>{i}</sup>"
+
     if month <= 4:
-        terms = " + ".join(f"{s:.2f}" for s in shares)
+        terms = " + ".join(_term(i, s) for i, s in enumerate(shares))
     else:
-        terms = f"{shares[0]:.2f} + {shares[1]:.2f} + &hellip; + {shares[-1]:.2f}"
-    gross = MARGIN * sum(shares)
+        terms = f"{_term(0, shares[0])} + {_term(1, shares[1])} + &hellip; + {_term(month - 1, shares[-1])}"
+    gross = DATA[example]["blended_clv"][month - 1]
     net_part = (f" &minus; ${DATA[example]['cac']} CAC = <b>${gross - DATA[example]['cac']:,.2f}</b> net"
                 if include_cac else "")
     st.markdown(
         f'<div class="calc"><b>How CLV is calculated:</b> CLV through month t = ${MARGIN} &times; '
-        f"(share still active in month 1 + &hellip; + month t).<br>"
+        f"(share active in month 1 + share in month 2 / (1+d) + &hellip; + share in month t / (1+d)<sup>t&minus;1</sup>), "
+        f"with monthly d &asymp; {MONTHLY_DISCOUNT_RATE:.1%}. The same idea as m(1+d)/(1+d&minus;r), "
+        f"but using each month's actual share instead of a constant r.<br>"
         f"Example, {example} through month {month}: ${MARGIN} &times; ({terms}) = <b>${gross:,.2f}</b>{net_part}</div>",
         unsafe_allow_html=True,
     )
@@ -345,7 +357,7 @@ for q in BUSINESS_QUESTIONS:
         st.markdown(f"**{q['prompt']}**")
 
 st.markdown(
-    f'<footer class="tb-footer">Margin = ${MARGIN}/active customer/month. '
+    f'<footer class="tb-footer">Margin = ${MARGIN}/active customer/month, discounted at {ANNUAL_DISCOUNT_RATE:.0%} a year. '
     "All figures are simplified teaching data, internally consistent, not real TastyBox financials.</footer>",
     unsafe_allow_html=True,
 )
